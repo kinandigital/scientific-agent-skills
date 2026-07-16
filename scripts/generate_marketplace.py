@@ -21,13 +21,36 @@ KEBAB_RE = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 
 
 def _extract_description(content: str, folder: str) -> str:
-    """Frontmatter `description:` wins; else first paragraph after the first `# ` heading."""
+    """Frontmatter `description:` wins; else first paragraph after the first `# ` heading.
+
+    Block-scalar indicators (`description: >` / `description: |`) and empty
+    values are treated as "no usable description" → fall through to the
+    heading path, rather than emitting the literal indicator.
+    """
+    # Normalize line endings so CRLF checkouts don't break the frontmatter scan.
+    content = content.replace("\r\n", "\n").replace("\r", "\n")
     if content.startswith("---\n"):
         end = content.find("\n---", 4)
         if end != -1:
-            for line in content[4:end].splitlines():
+            fm_lines = content[4:end].splitlines()
+            for i, line in enumerate(fm_lines):
                 if line.startswith("description:"):
-                    desc = line.split(":", 1)[1].strip().strip('"').strip("'")
+                    inline = line.split(":", 1)[1].strip().strip('"').strip("'")
+                    # Block scalar (`description: >` or `|`): value is on the
+                    # following more-indented lines. Join them (folded/literal
+                    # both collapse to the joined text for our one-line summary).
+                    if inline in (">", "|", ""):
+                        block: list[str] = []
+                        for cont in fm_lines[i + 1 :]:
+                            if cont.startswith(" ") or cont.startswith("\t"):
+                                block.append(cont.strip())
+                            elif cont.strip() == "":
+                                continue
+                            else:
+                                break
+                        desc = " ".join(block)
+                    else:
+                        desc = inline
                     if desc:
                         return desc[:200]
     # Fallback: first non-empty paragraph after the first "# " heading.

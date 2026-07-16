@@ -71,3 +71,46 @@ def test_generate_requires_skills_dir(tmp_path):
 
     with pytest.raises(ValueError, match="skills"):
         generate(tmp_path)
+
+
+def test_generate_block_scalar_description_is_joined(tmp_path):
+    # `description: >` (YAML block scalar): value spans indented continuation
+    # lines — must join them, NOT emit the literal ">" or fall back to heading.
+    _make_skill(
+        tmp_path,
+        "bids",
+        "---\nname: bids\ndescription: >\n  Use this for BIDS datasets:\n  organizing neuroscience data.\nlicense: CC-BY\n---\n\n# BIDS\n\nBrain imaging data spec.",
+    )
+
+    result = generate(tmp_path)
+    plugin = result["plugins"][0]
+    assert (
+        plugin["description"]
+        == "Use this for BIDS datasets: organizing neuroscience data."
+    )
+
+
+def test_generate_crlf_frontmatter(tmp_path):
+    # CRLF line endings must not break the frontmatter scan.
+    _make_skill(
+        tmp_path,
+        "crlf-skill",
+        "---\r\nname: crlf-skill\r\ndescription: A CRLF skill.\r\n---\r\n\r\n# CRLF\r\n\r\nBody.\r\n",
+    )
+
+    result = generate(tmp_path)
+    plugin = result["plugins"][0]
+    assert plugin["description"] == "A CRLF skill."
+
+
+def test_generate_truncates_long_frontmatter_description(tmp_path):
+    long_desc = "x" * 500
+    _make_skill(
+        tmp_path,
+        "wordy",
+        f"---\ndescription: {long_desc}\n---\n\n# Wordy\n\nBody.",
+    )
+
+    result = generate(tmp_path)
+    assert len(result["plugins"][0]["description"]) == 200
+
