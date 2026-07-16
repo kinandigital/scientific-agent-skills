@@ -1,0 +1,50 @@
+name: Validate Marketplace
+
+# Keeps .claude-plugin/marketplace.json in sync with skills/* and valid as a
+# Claude Code plugin marketplace. Fails if the committed catalog drifted from a
+# fresh generation, if the generator tests fail, or if `claude plugin validate`
+# reports errors.
+
+on:
+  push:
+    paths:
+      - "skills/**"
+      - "scripts/generate_marketplace.py"
+      - "scripts/test_generate_marketplace.py"
+      - ".claude-plugin/marketplace.json"
+      - ".github/workflows/validate-marketplace.yml"
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --dev
+
+      - name: Run generator tests
+        run: uv run pytest scripts/test_generate_marketplace.py -v
+
+      - name: Regenerate marketplace.json
+        run: uv run python scripts/generate_marketplace.py
+
+      - name: Fail if generated catalog drifted from committed copy
+        run: |
+          if ! git diff --exit-code -- .claude-plugin/marketplace.json; then
+            echo "::error::marketplace.json is out of sync with skills/. Run 'uv run python scripts/generate_marketplace.py' and commit the result."
+            exit 1
+          fi
+
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Validate marketplace manifest
+        run: claude plugin validate .
