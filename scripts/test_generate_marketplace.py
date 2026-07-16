@@ -21,6 +21,7 @@ def test_generate_basic_with_frontmatter(tmp_path):
 
     assert result["name"] == "scientific-agent-skills"
     assert result["owner"] == {"name": "Kinandigital"}
+    assert isinstance(result["description"], str) and result["description"]
     assert [p["name"] for p in result["plugins"]] == ["rdkit"]
     plugin = result["plugins"][0]
     assert plugin["source"] == "./"

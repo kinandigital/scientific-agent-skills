@@ -108,6 +108,11 @@ def generate(root: Path) -> dict:
     return {
         "name": MARKETPLACE_NAME,
         "owner": OWNER,
+        "description": (
+            "Scientific AI skills for Claude Code — one installable plugin per "
+            "skill across bioinformatics, cheminformatics, ML/AI, data analysis, "
+            "scientific communication, and more."
+        ),
         "plugins": plugins,
     }
 
